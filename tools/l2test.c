@@ -41,6 +41,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <math.h>
 
 #include "lib/bluetooth.h"
 #include "lib/hci.h"
@@ -845,6 +846,16 @@ static void recv_mode(int sk)
 	socklen_t optlen;
 	int opt, len;
 
+	double totalBytes, totalTime, totalTimeSq, totalPackets,
+	  totalRate, totalRateSq, tempRate;
+
+	totalBytes = 0;
+	totalTime = 0;
+	totalTimeSq = 0;
+	totalPackets = 0;
+	totalRate = 0;
+	totalRateSq = 0;
+	
 	if (data_size < 0)
 		data_size = imtu;
 
@@ -942,8 +953,20 @@ static void recv_mode(int sk)
 
 		timersub(&tv_end, &tv_beg, &tv_diff);
 
+		tempRate = (float)(total / tv2fl(tv_diff) ) / 1024.0;
+		totalBytes += total;
+	        totalTime += tv2fl(tv_diff);
+		totalPackets += 1;
+		totalRate += tempRate;
+		totalRateSq += tempRate*tempRate;
+
 		syslog(LOG_INFO,"%s%ld bytes in %.2f sec, %.2f kB/s", ts, total,
-			tv2fl(tv_diff), (float)(total / tv2fl(tv_diff) ) / 1024.0);
+			tv2fl(tv_diff), tempRate);
+
+		syslog(LOG_INFO,"Mean: %.2f kB/s",(float)(totalBytes/totalTime)/1024.0);
+		syslog(LOG_INFO,"Stdev: %.4f kB/s", 
+		       (sqrt(totalPackets*totalRateSq-totalRate*totalRate))/totalPackets);
+
 	}
 }
 
