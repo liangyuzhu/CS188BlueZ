@@ -1,0 +1,47 @@
+ifconfig -a		//comp 1
+HWaddr 08:00:27:dd:6c:96
+
+ifconfig -a		//comp 2
+HWaddr 08:00:27:53:43:5b
+
+
+
+hciconfig		//comp 1
+BD Address: 04:0C:CE:D6:42:81
+	
+hciconfig		//comp 2
+BD Address: 98:FE:94:40:87:57
+
+
+l2test -I 2000 -r	//comp 1
+
+l2test -O 2000 -s <BD_ADDRESS>		//comp 2
+
+
+...connection successful
+l2test[5360]: 2000 bytes in 0.01sec, 251.16kB/s
+l2test[5360]: 2000 bytes in 0.04sec, 54.31kB/s
+l2test[5360]: 2000 bytes in 0.01sec, 257.09kB/s
+...
+
+
+
+
+//download bluez
+
+./sudo apt-get update
+./sudo apt-get install libglib2.0-dev
+./sudo apt-get install libdbus-1-dev
+./sudo apt-get install libudev-dev
+./sudo apt-get install libical-dev
+./sudo apt-get install libreadline-dev
+
+
+./configure --prefix=/usr --mandir=/usr/share/man --sysconfdir=/etc --localstatedir=/var --enable-experimental --with-systemdsystemunitdir=/lib/systemd/system --with-systemduserunitdir=/usr/lib/systemd
+./sudo make
+./sudo make install
+
+
+git ls-files --deleted -z | xargs -0 git rm
+
+add -lm in $(LINK) in Makefile to link math library
