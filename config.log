@@ -622,6 +622,7 @@ config.status:1170: creating Makefile
 config.status:1170: creating src/bluetoothd.8
 config.status:1170: creating lib/bluez.pc
 config.status:1170: creating config.h
+config.status:1351: config.h is unchanged
 config.status:1399: executing depfiles commands
 config.status:1399: executing libtool commands
 
@@ -769,7 +770,7 @@ pkg_cv_UDEV_LIBS='-ludev  '
 ## Output variables. ##
 ## ----------------- ##
 
-ACLOCAL='${SHELL} /home/ubuntu/Downloads/bluez-5.39/missing aclocal-1.14'
+ACLOCAL='${SHELL} /home/ubuntu/Desktop/bluez-5.39/missing aclocal-1.14'
 AMDEPBACKSLASH='\'
 AMDEP_FALSE='#'
 AMDEP_TRUE=''
@@ -781,9 +782,9 @@ AM_V='$(V)'
 ANDROID_FALSE=''
 ANDROID_TRUE='#'
 AR='ar'
-AUTOCONF='${SHELL} /home/ubuntu/Downloads/bluez-5.39/missing autoconf'
-AUTOHEADER='${SHELL} /home/ubuntu/Downloads/bluez-5.39/missing autoheader'
-AUTOMAKE='${SHELL} /home/ubuntu/Downloads/bluez-5.39/missing automake-1.14'
+AUTOCONF='${SHELL} /home/ubuntu/Desktop/bluez-5.39/missing autoconf'
+AUTOHEADER='${SHELL} /home/ubuntu/Desktop/bluez-5.39/missing autoheader'
+AUTOMAKE='${SHELL} /home/ubuntu/Desktop/bluez-5.39/missing automake-1.14'
 AWK='mawk'
 BACKTRACE_CFLAGS=''
 BACKTRACE_LIBS=''
@@ -850,7 +851,7 @@ LTLIBOBJS=''
 MAINT='#'
 MAINTAINER_MODE_FALSE=''
 MAINTAINER_MODE_TRUE='#'
-MAKEINFO='${SHELL} /home/ubuntu/Downloads/bluez-5.39/missing makeinfo'
+MAKEINFO='${SHELL} /home/ubuntu/Desktop/bluez-5.39/missing makeinfo'
 MANIFEST_TOOL=':'
 MANPAGES_FALSE=''
 MANPAGES_TRUE='#'
@@ -944,7 +945,7 @@ host_vendor='unknown'
 htmldir='${docdir}'
 includedir='${prefix}/include'
 infodir='${datarootdir}/info'
-install_sh='${SHELL} /home/ubuntu/Downloads/bluez-5.39/install-sh'
+install_sh='${SHELL} /home/ubuntu/Desktop/bluez-5.39/install-sh'
 libdir='${exec_prefix}/lib'
 libexecdir='${exec_prefix}/libexec'
 localedir='${datarootdir}/locale'

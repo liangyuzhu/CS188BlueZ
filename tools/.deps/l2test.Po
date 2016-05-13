@@ -74,7 +74,15 @@ tools/l2test.o: tools/l2test.c /usr/include/stdc-predef.h config.h \
  /usr/include/asm-generic/socket.h \
  /usr/include/x86_64-linux-gnu/asm/sockios.h \
  /usr/include/asm-generic/sockios.h \
- /usr/include/x86_64-linux-gnu/bits/socket2.h lib/bluetooth.h \
+ /usr/include/x86_64-linux-gnu/bits/socket2.h /usr/include/math.h \
+ /usr/include/x86_64-linux-gnu/bits/huge_val.h \
+ /usr/include/x86_64-linux-gnu/bits/huge_valf.h \
+ /usr/include/x86_64-linux-gnu/bits/huge_vall.h \
+ /usr/include/x86_64-linux-gnu/bits/inf.h \
+ /usr/include/x86_64-linux-gnu/bits/nan.h \
+ /usr/include/x86_64-linux-gnu/bits/mathdef.h \
+ /usr/include/x86_64-linux-gnu/bits/mathcalls.h \
+ /usr/include/x86_64-linux-gnu/bits/mathinline.h lib/bluetooth.h \
  /usr/lib/gcc/x86_64-linux-gnu/4.8/include/stdint.h /usr/include/stdint.h \
  /usr/include/x86_64-linux-gnu/bits/wchar.h /usr/include/string.h \
  /usr/include/x86_64-linux-gnu/bits/string.h \
@@ -274,6 +282,24 @@ config.h:
 /usr/include/asm-generic/sockios.h:
 
 /usr/include/x86_64-linux-gnu/bits/socket2.h:
+
+/usr/include/math.h:
+
+/usr/include/x86_64-linux-gnu/bits/huge_val.h:
+
+/usr/include/x86_64-linux-gnu/bits/huge_valf.h:
+
+/usr/include/x86_64-linux-gnu/bits/huge_vall.h:
+
+/usr/include/x86_64-linux-gnu/bits/inf.h:
+
+/usr/include/x86_64-linux-gnu/bits/nan.h:
+
+/usr/include/x86_64-linux-gnu/bits/mathdef.h:
+
+/usr/include/x86_64-linux-gnu/bits/mathcalls.h:
+
+/usr/include/x86_64-linux-gnu/bits/mathinline.h:
 
 lib/bluetooth.h:
 
