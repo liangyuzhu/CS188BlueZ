@@ -1,3 +1,19 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <iostream>
+#include <sstream>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include <string>
 #include <vector>
 using namespace std;
@@ -10,9 +26,10 @@ const int PACKET_SIZES[] = {1, -1, 6, 2, -1, 2, -1};
 int id;
 double avgX, avgY, varX, varY, minX, minY, maxX, maxY;
 string graphStr;
+int sockfd;
 
 int setupSocket() {
-    int sockfd = socket(AF_INET, SOCK_STREAM);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
     
     int yes = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
@@ -51,20 +68,22 @@ vector<char> readData (int sockfd) {
     while(read(sockfd, &c, 1) > 0) {
         response += c;
     }
-    int s = response.size();
-    int* input = new int[s];
-    memcpy(input, s.c_str(), s);
-    
-    vector<int> toRet;
-    for (int i = 0; i < s; i++) {
-        toRet.push_back(input[i]);
+
+    vector<char> toRet;
+    for (int i = 0; i < response.size(); i++) {
+        toRet.push_back(response[i]);
     }
-    delete input[];
     return toRet;
 }
 
 void processData(vector<char> &v, int type) {
-    int type = *((int*)v[0]);
+    int checkType = *((int*)v[0]);
+    
+    if (checkType != type) {
+        cout << "Packet is type " << checkType << ". Expected type " << type << endl;
+        exit(1);
+    }
+    
     switch (type) {
         case 1:
             id = *((int*)v[1]);
@@ -98,13 +117,16 @@ void writeData(int sockfd, int type, int id = -1, int x = -1, int y = -1) {
     output[0] = type;
     output[1] = id;	//undefined for type 0;
     
+    double* dx;
+    double* dy;
+    
     switch(type) {
         case 0:
             break;
         case 2:
             output[1] = id;
-            double* dx = (double*)output[2];
-            double* dy = (double*)output[3];
+            dx = (double*)output[2];
+            dy = (double*)output[3];
             *dx = x;
             *dy = y;
             break;
@@ -112,13 +134,14 @@ void writeData(int sockfd, int type, int id = -1, int x = -1, int y = -1) {
             output[1] = id;
             break;
         case 5:
-            output[i] = id;
+            output[1] = id;
             break;
         default:
             exit(1);
     }
     
     write(sockfd, (char*)output, PACKET_SIZES[type]*4);
+    delete[] output;
 }
 
 int main() {
@@ -129,7 +152,7 @@ int main() {
     
     vector<char> v;
     
-    writeData(sockfd, 0)
+    writeData(sockfd, 0);
     v = readData(sockfd);
     processData(v, 1);
     
