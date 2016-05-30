@@ -45,3 +45,11 @@ l2test[5360]: 2000 bytes in 0.01sec, 257.09kB/s
 git ls-files --deleted -z | xargs -0 git rm
 
 add -lm in $(LINK) in Makefile to link math library
+
+-------------------
+on Host machine
+kextunload -b com.apple.iokit.IOBluetoothSerialManager
+kextunload -b com.apple.iokit.BroadcomBluetoothHCIControllerUSBTransport
+
+kextload -b com.apple.iokit.IOBluetoothSerialManager
+kextload -b com.apple.iokit.BroadcomBluetoothHCIControllerUSBTransport
