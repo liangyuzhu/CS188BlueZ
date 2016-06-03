@@ -42,6 +42,11 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <math.h>
+#include <sys/types.h>
+#include <sys/signal.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
 
 #include "lib/bluetooth.h"
 #include "lib/hci.h"
@@ -54,6 +59,142 @@
 
 #define BREDR_DEFAULT_PSM	0x1011
 #define LE_DEFAULT_PSM		0x0080
+
+const int portNum = 4000;
+const char localhost[] = "127.0.0.1";
+
+const int WRITE_PACKET_SIZES[] = {1, -1, 6, 2, -1, 2, -1};
+const int READ_PACKET_SIZES[] = {-1, 2, -1, -1, 18, -1, 1};
+
+int id;
+double avgX, avgY, varX, varY, minX, minY, maxX, maxY;
+char graphStr[10000];
+int sockfd;
+
+int setupSocket() {
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    
+    int yes = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+        perror("setsockopt");
+        return 1;
+    }
+    
+    
+    
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(portNum);
+    addr.sin_addr.s_addr = inet_addr(localhost);
+    memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
+    
+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        perror("connect");
+        return 2;
+    }
+    
+    
+    struct sockaddr_in clientAddr;
+    socklen_t clientAddrLen = sizeof(clientAddr);
+    
+    if (getsockname(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen) == -1) {
+        perror("getsockname");
+        return 3;
+    }
+    return 0;
+}
+
+
+char* readData (int sockfd, int type) {
+    if (type > 6 || READ_PACKET_SIZES[type] == -1)
+        exit(1);
+    int r;
+    char* response = (char*)malloc(10000);
+    int size = READ_PACKET_SIZES[type]*4;
+    r = read(sockfd, response, size);
+    
+    if (type == 4) {	//read graph string
+    	char ch;
+    	while (true) {
+    		r = read(sockfd, &ch, 1);
+    		if (ch == 0)
+    			break;
+    		response[size++] = ch;
+    	}
+    }
+
+    return response;
+}
+
+void processData(char* v, int type) {
+
+    int checkType = *((int*)v);
+
+    if (checkType != type) {
+        printf("Packet is type %i. Expect type %i\n", checkType, type);
+        exit(1);
+    }
+
+	int i = 72;
+    switch (type) {
+        case 1:
+            id = *((int*)(v+4));
+            break;
+        case 4:
+            avgX = *((double*)(v+8));
+            avgY = *((double*)(v+16));
+            varX = *((double*)(v+24));
+            varY = *((double*)(v+32));
+            minX = *((double*)(v+40));
+            minY = *((double*)(v+48));
+            maxX = *((double*)(v+56));
+            maxY = *((double*)(v+64));
+            while (v[i] != '\0') {
+            	graphStr[i-72] = v[i];
+            	i++;
+            }
+            graphStr[i] = '\0';
+            break;
+        case 6:
+            exit(1);
+            break;
+        default:
+            exit(1);
+    }
+    free(v);
+}
+
+void writeData(int sockfd, int type, int id, int x, int y) {
+    if (type > 6 || WRITE_PACKET_SIZES[type] == -1)
+        exit(1);
+    int* output = (int*)malloc(1000*4);
+    int r;
+    output[0] = type;
+    output[1] = id;	//undefined for type 0;
+    
+    double* dx;
+    double* dy;
+    
+    switch(type) {
+        case 0:
+            break;
+        case 2:
+            dx = (double*)(output+2);
+            dy = (double*)(output+4);
+            *dx = x;
+            *dy = y;
+            break;
+        case 3:
+            break;
+        case 5:
+            break;
+        default:
+            exit(1);
+    }
+    
+    r = write(sockfd, (char*)output, WRITE_PACKET_SIZES[type]*4);
+    free(output);
+}
 
 /* Test modes */
 enum {
@@ -879,6 +1020,20 @@ static void recv_mode(int sk)
 	p.events = POLLIN | POLLERR | POLLHUP;
 
 	seq = 0;
+
+	
+	//  set up connection with daemon
+	if (setupSocket()) {
+	  printf("Socket setup failed, revert to normal output\n");
+	  return;
+	}
+    
+	char* c;
+	
+	writeData(sockfd, 0, -1, -1, -1);
+	c = readData(sockfd, 1);
+	processData(c, 1);
+
 	while (1) {
 		gettimeofday(&tv_beg, NULL);
 		total = 0;
@@ -960,13 +1115,31 @@ static void recv_mode(int sk)
 		totalRate += tempRate;
 		totalRateSq += tempRate*tempRate;
 
+		
+		//  communicate with daemon through socket
+		writeData(sockfd, 2, id, tv2fl(tv_diff), total);
+		writeData(sockfd, 3, id, -1, -1);
+		readData(sockfd, 4);
+		processData(c, 4);
+		
+		printf("Avg X: %f\n", avgX);
+	        printf("Avg Y: %f\n", avgY);
+		printf("Var X: %f\n", varX);
+		printf("Var Y: %f\n", varY);
+		printf("Min X: %f\n", minX);
+		printf("Min Y: %f\n", minY);
+		printf("Max X: %f\n", maxX);
+		printf("Max Y: %f\n", maxY);
+		printf("Graph Str:\n%s\n", graphStr);
+		 
+		/*
 		syslog(LOG_INFO,"%s%ld bytes in %.2f sec, %.2f kB/s", ts, total,
 			tv2fl(tv_diff), tempRate);
 
 		syslog(LOG_INFO,"Mean: %.2f kB/s",(float)(totalBytes/totalTime)/1024.0);
 		syslog(LOG_INFO,"Stdev: %.4f kB/s", 
 		       (sqrt(totalPackets*totalRateSq-totalRate*totalRate))/totalPackets);
-
+		*/
 	}
 }
 
