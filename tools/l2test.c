@@ -63,8 +63,8 @@
 const int portNum = 4000;
 const char localhost[] = "127.0.0.1";
 
-const int WRITE_PACKET_SIZES[] = {1, -1, 6, 2, -1, 2, -1};
-const int READ_PACKET_SIZES[] = {-1, 2, -1, -1, 18, -1, 1};
+const int WRITE_PACKET_SIZES[] = {1, -1, 6, 2, -1, 2, -1, -1};
+const int READ_PACKET_SIZES[] = {-1, 2, -1, -1, 18, -1, 2, 2};//check READ[7]
 
 int id;
 double avgX, avgY, varX, varY, minX, minY, maxX, maxY;
@@ -106,14 +106,14 @@ int setupSocket() {
 
 
 char* readData (int sockfd, int type) {
-    if (type > 6 || READ_PACKET_SIZES[type] == -1)
+    if (type > 7 || READ_PACKET_SIZES[type] == -1)
         exit(1);
     int r;
     char* response = (char*)malloc(10000);
     int size = READ_PACKET_SIZES[type]*4;
     r = read(sockfd, response, size);
     
-    if (type == 4) {	//read graph string
+    if (type == 4 || type == 6 || type == 7) {	//read graph string
     	char ch;
     	while (true) {
     		r = read(sockfd, &ch, 1);
@@ -158,6 +158,8 @@ void processData(char* v, int type) {
         case 6:
             exit(1);
             break;
+        case 7:
+	    break;
         default:
             exit(1);
     }
@@ -165,7 +167,7 @@ void processData(char* v, int type) {
 }
 
 void writeData(int sockfd, int type, int id, int x, int y) {
-    if (type > 6 || WRITE_PACKET_SIZES[type] == -1)
+    if (type > 7 || WRITE_PACKET_SIZES[type] == -1)
         exit(1);
     int* output = (int*)malloc(1000*4);
     int r;
@@ -194,6 +196,27 @@ void writeData(int sockfd, int type, int id, int x, int y) {
     
     r = write(sockfd, (char*)output, WRITE_PACKET_SIZES[type]*4);
     free(output);
+}
+
+void my_handler(int s) {
+  printf("Caught signal\n");
+  
+  char* c;
+  writeData(sockfd, 3, id, -1, -1);
+  readData(sockfd, 4);
+  processData(c, 4);
+		
+  printf("Avg X: %f\n", avgX);
+  printf("Avg Y: %f\n", avgY);
+  printf("Var X: %f\n", varX);
+  printf("Var Y: %f\n", varY);
+  printf("Min X: %f\n", minX);
+  printf("Min Y: %f\n", minY);
+  printf("Max X: %f\n", maxX);
+  printf("Max Y: %f\n", maxY);
+  printf("Graph Str:\n%s\n", graphStr);
+
+  exit(1);
 }
 
 /* Test modes */
@@ -1118,19 +1141,8 @@ static void recv_mode(int sk)
 		
 		//  communicate with daemon through socket
 		writeData(sockfd, 2, id, tv2fl(tv_diff), total);
-		writeData(sockfd, 3, id, -1, -1);
-		readData(sockfd, 4);
-		processData(c, 4);
-		
-		printf("Avg X: %f\n", avgX);
-	        printf("Avg Y: %f\n", avgY);
-		printf("Var X: %f\n", varX);
-		printf("Var Y: %f\n", varY);
-		printf("Min X: %f\n", minX);
-		printf("Min Y: %f\n", minY);
-		printf("Max X: %f\n", maxX);
-		printf("Max Y: %f\n", maxY);
-		printf("Graph Str:\n%s\n", graphStr);
+		readData(sockfd, 7);
+
 		 
 		/*
 		syslog(LOG_INFO,"%s%ld bytes in %.2f sec, %.2f kB/s", ts, total,
@@ -1544,7 +1556,7 @@ static void usage(void)
 
 int main(int argc, char *argv[])
 {
-	struct sigaction sa;
+  struct sigaction sa, sa2;
 	int opt, sk, mode = RECV, need_addr = 0;
 
 	bacpy(&bdaddr, BDADDR_ANY);
@@ -1796,6 +1808,11 @@ int main(int argc, char *argv[])
 	sa.sa_handler = SIG_IGN;
 	sa.sa_flags   = SA_NOCLDSTOP;
 	sigaction(SIGCHLD, &sa, NULL);
+
+	memset(&sa2, 0, sizeof(sa2));
+	sa2.sa_handler = my_handler;
+	sa2.sa_flags = 0;
+	sigaction(SIGINT, &sa2, NULL);
 
 	openlog("l2test", LOG_PERROR | LOG_PID, LOG_LOCAL0);
 
