@@ -41,6 +41,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <math.h>
 #include <sys/types.h>
 #include <sys/signal.h>
@@ -64,43 +65,40 @@ const int portNum = 4000;
 const char localhost[] = "127.0.0.1";
 
 const int WRITE_PACKET_SIZES[] = {1, -1, 6, 2, -1, 2, -1, -1};
-const int READ_PACKET_SIZES[] = {-1, 2, -1, -1, 18, -1, 2, 2};//check READ[7]
+//const int READ_PACKET_SIZES[] = {-1, 2, -1, -1, 512, -1, 2, 2};//check READ[7]
+const int READ_PACKET_SIZES[] = {512, 512, 512, 512, 512, 512, 512, 512};
 
 int id;
 double avgX, avgY, varX, varY, minX, minY, maxX, maxY;
 char graphStr[10000];
 int sockfd;
+struct sockaddr_un svaddr, claddr;
+int addrLen;
+
 
 int setupSocket() {
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    
-    int yes = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-        perror("setsockopt");
-        return 1;
+    sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
+    /*
+    if (remove("/tmp/ping_stats.sock") == -1 && errno == ENOENT) {
+      fprintf(stderr, "%s\n", "remove");
+      exit(1);
     }
+    */
+    memset(&claddr, 0, sizeof(struct sockaddr_un));
+    claddr.sun_family = AF_UNIX;
+    strncpy(claddr.sun_path, "/tmp/ping_stats.sock", sizeof(claddr.sun_path) - 1);
+    unlink(claddr.sun_path);
+    
+    memset(&svaddr, 0, sizeof(struct sockaddr_un));
+    svaddr.sun_family = AF_UNIX;
+    strncpy(svaddr.sun_path, "/tmp/statsd_server.sock", sizeof(svaddr.sun_path) - 1);
     
     
-    
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(portNum);
-    addr.sin_addr.s_addr = inet_addr(localhost);
-    memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
-    
-    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-        perror("connect");
-        return 2;
+    if (bind(sockfd, (struct sockaddr *) &claddr, sizeof(struct sockaddr_un)) == -1) {
+      fprintf(stderr, "%s\n", "bind");
+      exit(1);
     }
-    
-    
-    struct sockaddr_in clientAddr;
-    socklen_t clientAddrLen = sizeof(clientAddr);
-    
-    if (getsockname(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen) == -1) {
-        perror("getsockname");
-        return 3;
-    }
+
     return 0;
 }
 
@@ -111,18 +109,18 @@ char* readData (int sockfd, int type) {
     int r;
     char* response = (char*)malloc(10000);
     int size = READ_PACKET_SIZES[type]*4;
-    r = read(sockfd, response, size);
-    
-    if (type == 4 || type == 6 || type == 7) {	//read graph string
+    r = recvfrom(sockfd, response, size, 0, NULL, NULL);
+    /*    
+    if (type == 4 || type == 6) {	//read graph string
     	char ch;
     	while (true) {
-    		r = read(sockfd, &ch, 1);
+	  r = recvfrom(sockfd, &ch, 1, 0, NULL, NULL);
     		if (ch == 0)
     			break;
     		response[size++] = ch;
     	}
     }
-
+    */
     return response;
 }
 
@@ -132,7 +130,7 @@ void processData(char* v, int type) {
 
     if (checkType != type) {
         printf("Packet is type %i. Expect type %i\n", checkType, type);
-        exit(1);
+	//        exit(1);
     }
 
 	int i = 72;
@@ -166,7 +164,7 @@ void processData(char* v, int type) {
     free(v);
 }
 
-void writeData(int sockfd, int type, int id, int x, int y) {
+void writeData(int sockfd, int type, int id, double x, double y) {
     if (type > 7 || WRITE_PACKET_SIZES[type] == -1)
         exit(1);
     int* output = (int*)malloc(1000*4);
@@ -193,8 +191,9 @@ void writeData(int sockfd, int type, int id, int x, int y) {
         default:
             exit(1);
     }
-    
-    r = write(sockfd, (char*)output, WRITE_PACKET_SIZES[type]*4);
+
+    addrLen = sizeof(struct sockaddr_un);
+    r = sendto(sockfd, (char*)output, WRITE_PACKET_SIZES[type]*4, 0, (struct sockaddr*) &svaddr, addrLen);
     free(output);
 }
 
@@ -203,7 +202,7 @@ void my_handler(int s) {
   
   char* c;
   writeData(sockfd, 3, id, -1, -1);
-  readData(sockfd, 4);
+  c = readData(sockfd, 4);
   processData(c, 4);
 		
   printf("Avg X: %f\n", avgX);
@@ -1044,18 +1043,19 @@ static void recv_mode(int sk)
 
 	seq = 0;
 
-	
 	//  set up connection with daemon
 	if (setupSocket()) {
 	  printf("Socket setup failed, revert to normal output\n");
 	  return;
 	}
-    
+
 	char* c;
 	
+
 	writeData(sockfd, 0, -1, -1, -1);
 	c = readData(sockfd, 1);
 	processData(c, 1);
+
 
 	while (1) {
 		gettimeofday(&tv_beg, NULL);
@@ -1138,13 +1138,11 @@ static void recv_mode(int sk)
 		totalRate += tempRate;
 		totalRateSq += tempRate*tempRate;
 
-		
 		//  communicate with daemon through socket
-		writeData(sockfd, 2, id, tv2fl(tv_diff), total);
+		writeData(sockfd, 2, id, 1.0*totalBytes/2000, 1.0*tempRate);
 		readData(sockfd, 7);
-
-		 
-		/*
+	
+		/*		
 		syslog(LOG_INFO,"%s%ld bytes in %.2f sec, %.2f kB/s", ts, total,
 			tv2fl(tv_diff), tempRate);
 
@@ -1809,7 +1807,7 @@ int main(int argc, char *argv[])
 	sa.sa_flags   = SA_NOCLDSTOP;
 	sigaction(SIGCHLD, &sa, NULL);
 
-	memset(&sa2, 0, sizeof(sa2));
+       	memset(&sa2, 0, sizeof(sa2));
 	sa2.sa_handler = my_handler;
 	sa2.sa_flags = 0;
 	sigaction(SIGINT, &sa2, NULL);
